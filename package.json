@@ -1,0 +1,28 @@
+{
+  "name": "ascend-digital-cards",
+  "version": "0.9.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "node scripts/build-platform.mjs",
+    "start": "node scripts/preview-hosted.mjs",
+    "test": "node .sites-runtime/model-tests.mjs && node tests/hosted.test.mjs && node tests/team-access.test.mjs && node tests/customer-foundation.test.mjs && node tests/personal-access.test.mjs && node tests/admin-customers.test.mjs && node tests/media-save.test.mjs && node tests/company-access.test.mjs && node tests/profile-deletion.test.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "lucide-react": "0.575.0",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "rolldown": "1.2.1",
+    "typescript": "5.9.3",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3"
+  }
+}

@@ -1,0 +1,14 @@
+// Byte-mode QR version 5 L: 108 data + 26 Reed-Solomon codewords.
+// Fixed mask 0 keeps the encoder small; all masks are valid QR symbols.
+export function qrMatrix(value:string):boolean[][]{
+ const data=Array.from(new TextEncoder().encode(value));if(data.length>106)throw Error('This URL is too long for the card QR encoder.');
+ const bits:number[]=[];const put=(v:number,n:number)=>{for(let i=n-1;i>=0;i--)bits.push((v>>>i)&1);};put(4,4);put(data.length,8);data.forEach(x=>put(x,8));put(0,Math.min(4,864-bits.length));while(bits.length%8)bits.push(0);
+ const words:number[]=[];for(let i=0;i<bits.length;i+=8)words.push(bits.slice(i,i+8).reduce((a,b)=>a*2+b,0));while(words.length<108)words.push(words.length%2===Math.ceil(bits.length/8)%2?0xec:0x11);
+ const mul=(a:number,b:number)=>{let r=0;while(b){if(b&1)r^=a;a<<=1;if(a&256)a^=0x11d;b>>>=1;}return r;};
+ let poly=[1];let root=1;for(let i=0;i<26;i++){const next=new Array(poly.length+1).fill(0);poly.forEach((v,j)=>{next[j]^=v;next[j+1]^=mul(v,root);});poly=next;root=mul(root,2);}const rem=new Array(26).fill(0);for(const w of words){const factor=w^rem.shift()!;rem.push(0);for(let j=0;j<26;j++)rem[j]^=mul(poly[j+1],factor);}const encoded=[...words,...rem].flatMap(w=>Array.from({length:8},(_,i)=>(w>>>(7-i))&1));
+ const n=37,m=Array.from({length:n},()=>new Array(n).fill(false)),fixed=Array.from({length:n},()=>new Array(n).fill(false));const set=(x:number,y:number,v:boolean)=>{if(x>=0&&y>=0&&x<n&&y<n){m[y][x]=v;fixed[y][x]=true;}};
+ for(let i=0;i<n;i++){set(6,i,i%2===0);set(i,6,i%2===0);}for(const [cx,cy] of [[3,3],[n-4,3],[3,n-4]])for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){const d=Math.max(Math.abs(dx),Math.abs(dy));set(cx+dx,cy+dy,d!==2&&d!==4);}for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)set(30+dx,30+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1);
+ const format=0x77c4;const bit=(i:number)=>!!((format>>>i)&1);for(let i=0;i<=5;i++)set(8,i,bit(i));set(8,7,bit(6));set(8,8,bit(7));set(7,8,bit(8));for(let i=9;i<15;i++)set(14-i,8,bit(i));for(let i=0;i<8;i++)set(n-1-i,8,bit(i));for(let i=8;i<15;i++)set(8,n-15+i,bit(i));set(8,n-8,true);
+ let at=0;for(let right=n-1;right>=1;right-=2){if(right===6)right=5;for(let vert=0;vert<n;vert++){const y=((right+1)&2)===0?n-1-vert:vert;for(let j=0;j<2;j++){const x=right-j;if(!fixed[y][x])m[y][x]=!!(encoded[at++]||0)!==((x+y)%2===0);}}}return m;
+}
+export function qrDataUrl(value:string){const m=qrMatrix(value),scale=8,margin=4,n=m.length,canvas=document.createElement('canvas');canvas.width=canvas.height=(n+margin*2)*scale;const ctx=canvas.getContext('2d')!;ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#102737';m.forEach((row,y)=>row.forEach((v,x)=>{if(v)ctx.fillRect((x+margin)*scale,(y+margin)*scale,scale,scale);}));return canvas.toDataURL('image/png');}

@@ -1,0 +1,4 @@
+{
+  "compilerOptions": {"target":"ES2022","lib":["DOM","DOM.Iterable","ES2023"],"module":"ESNext","moduleResolution":"bundler","jsx":"react-jsx","strict":true,"skipLibCheck":true,"noEmit":true,"allowImportingTsExtensions":true,"baseUrl":".","paths":{"@/*":["./*"],"react":["../../ashraf-membership-lab/node_modules/@types/react"],"react/*":["../../ashraf-membership-lab/node_modules/@types/react/*"],"react-dom/*":["../../ashraf-membership-lab/node_modules/@types/react-dom/*"],"lucide-react":["../../ashraf-membership-lab/node_modules/lucide-react/dist/lucide-react.d.ts"],"zod":["../../ashraf-membership-lab/node_modules/zod"]},"typeRoots":["../../ashraf-membership-lab/node_modules/@types"],"types":["react","react-dom","node"]},
+  "include":["app/workspace.tsx","app/card-view.tsx","app/entry.tsx","lib/model.ts","lib/qr.ts","tests/model.test.ts"]
+}

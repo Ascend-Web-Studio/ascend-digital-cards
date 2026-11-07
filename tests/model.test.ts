@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import {seedState,workspaceSchema,toDoc,price,vcard} from '../lib/model.ts';
+import {qrMatrix} from '../lib/qr.ts';
+import {rasterMime} from '../lib/images.ts';
+const s=seedState();assert.equal(workspaceSchema.safeParse(s).success,true);
+assert.equal(price('team',10).setup,3999);assert.equal(price('team',10).maintenance,250);assert.equal(price('individual',1,true).maintenance,400);assert.equal(price('individual',1,false).maintenance,35);
+const p=s.profiles[0];p.accent='#ffffff';assert.equal(toDoc(p,s).accent,s.groups[0].color);s.groups[0].lockBrand=false;assert.equal(toDoc(p,s).accent,'#ffffff');
+const doc=toDoc(p,s);p.blocks[0].title='Changed';assert.notEqual(doc.blocks[0].title,p.blocks[0].title);
+s.groups[0].companyId='other-company';assert.equal(workspaceSchema.safeParse(s).success,false);
+const bad=seedState();bad.profiles[0].blocks[3].url='javascript:alert(1)';assert.equal(workspaceSchema.safeParse(bad).success,false);
+const duplicate=seedState();duplicate.profiles.push(structuredClone(duplicate.profiles[0]));assert.equal(workspaceSchema.safeParse(duplicate).success,false);
+const vc=vcard({...doc,name:'Mia\nInjected;name'});assert(vc.includes('FN:Mia\\nInjected\\;name'));assert(!vc.includes('\nInjected;name'));
+const matrix=qrMatrix('https://example.com/n/01234567890123456789012345678901');assert.equal(matrix.length,37);assert(matrix.every(r=>r.length===37));assert(matrix[3][3]);assert.equal(matrix[1][1],false);assert.throws(()=>qrMatrix('x'.repeat(107)));
+console.log('Passed: pricing, locks, snapshot isolation, ownership, unsafe links, duplicates, vCard escaping and QR capacity.');
+const images=seedState();const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
+images.companies[0].logo=png;images.companies[0].coverImage=png;images.companies[0].coverPosition=24;images.profiles[0].photo=png;
+assert.equal(workspaceSchema.safeParse(images).success,true);
+const imageDoc=toDoc(images.profiles[0],images);assert.equal(imageDoc.companyLogo,png);assert.equal(imageDoc.coverImage,png);assert.equal(imageDoc.coverPosition,24);assert.equal(imageDoc.photo,png);
+images.profiles[0].live=structuredClone(imageDoc);images.companies[0].logo='';images.profiles[0].photo='';assert.equal(images.profiles[0].live.companyLogo,png);assert.equal(images.profiles[0].live.photo,png);
+images.profiles[0].coverImage=png;images.profiles[0].coverPosition=85;assert.equal(toDoc(images.profiles[0],images).coverPosition,85);images.profiles[0].coverImage='';assert.equal(toDoc(images.profiles[0],images).coverPosition,24);
+const restored=workspaceSchema.parse(JSON.parse(JSON.stringify(images)));assert.equal(restored.profiles[0].live?.photo,png);assert.equal(restored.companies[0].coverImage,png);
+assert.equal(workspaceSchema.safeParse(seedState()).success,true); // older backups have no image fields
+images.profiles[0].photo='data:image/svg+xml;base64,PHN2Zy8+';assert.equal(workspaceSchema.safeParse(images).success,false);
+images.profiles[0].photo='https://tracker.example/photo.jpg';assert.equal(workspaceSchema.safeParse(images).success,false);
+images.profiles[0].photo='data:image/png;base64,'+'A'.repeat(100001);assert.equal(workspaceSchema.safeParse(images).success,false);
+assert.equal(rasterMime(new Uint8Array([137,80,78,71,13,10,26,10])),'image/png');assert.equal(rasterMime(new Uint8Array([255,216,255])),'image/jpeg');assert.equal(rasterMime(new TextEncoder().encode('RIFF0000WEBP')),'image/webp');assert.equal(rasterMime(new TextEncoder().encode('<svg/>')),null);
+console.log('Passed: image inheritance, positions, published image isolation, backup round trips, legacy backups, unsafe/oversized image rejection and raster signatures.');
+
+// Phone import requires the complete vCard 3.0 name properties, not just an FN.
+const importName='Zoë 范'.repeat(16);
+const imported=vcard({...doc,name:importName});
+const unfolded=imported.replace(/\r\n[ \t]/g,'');
+assert(unfolded.includes('N:;'+importName+';;;\r\n'));
+assert(unfolded.includes('FN:'+importName+'\r\n'));
+assert(imported.startsWith('BEGIN:VCARD\r\nVERSION:3.0\r\n'));
+assert(imported.endsWith('END:VCARD\r\n'));
+assert(imported.split('\r\n').every(line=>Buffer.byteLength(line,'utf8')<=75));
+assert(!imported.replace(/\r\n/g,'').includes('\n'));
+assert(vcard({...doc,name:'First\rLast'}).includes('FN:First\\nLast\r\n'));
+console.log('Passed: vCard 3.0 required name, complete CRLF framing and UTF-8 folding for phone import.');
+
+import './profile-import.test';
+
+import {recoverProfileDrafts} from '../lib/recover-drafts';
+const recoveryCurrent=seedState(),recoveryProfile=recoveryCurrent.profiles[0];
+recoveryProfile.live=toDoc(recoveryProfile,recoveryCurrent);recoveryProfile.publicEnabled=true;recoveryProfile.publishedAt='2026-10-25';
+recoveryProfile.history=[{at:'2026-10-24',doc:structuredClone(recoveryProfile.live)}];
+const recoveryBackup=structuredClone(recoveryCurrent);
+recoveryBackup.profiles[0].name='Recovered unsaved name';
+recoveryBackup.profiles[0].live!.name='Must not replace public card';
+recoveryBackup.profiles[0].history=[];recoveryBackup.profiles[0].publicEnabled=false;recoveryBackup.profiles[0].archived=true;
+recoveryBackup.companies[0].name='Must not replace company';
+const beforeRecovery=JSON.stringify(recoveryCurrent);
+const recovered=recoverProfileDrafts(recoveryCurrent,recoveryBackup);
+assert.equal(recovered.state.profiles[0].name,'Recovered unsaved name');
+assert.deepEqual(recovered.state.profiles[0].live,recoveryProfile.live);
+assert.deepEqual(recovered.state.profiles[0].history,recoveryProfile.history);
+assert.equal(recovered.state.profiles[0].publicEnabled,true);
+assert.equal(recovered.state.profiles[0].archived,false);
+assert.equal(recovered.state.companies[0].name,recoveryCurrent.companies[0].name);
+assert.equal(JSON.stringify(recoveryCurrent),beforeRecovery);
+const unrelated=seedState();unrelated.profiles.forEach(p=>p.id='other-'+p.id);
+assert.throws(()=>recoverProfileDrafts(recoveryCurrent,unrelated));
+console.log('Passed: draft recovery preserves public revisions, history, archive state, company branding and immutable input.');
