@@ -1,6 +1,6 @@
 # GitHub and Cloudflare migration
 
-Status: ready for an infrastructure-only staging deployment. The application itself remains locked pending replacement authentication and data migration.
+Status: staging sign-in probe prepared. The application itself remains locked pending identity mapping and data migration.
 
 Imported on 7 November 2026 from the local Ascend Digital Cards checkout. The last Sites source commit was `50877bbbdc51cca86ed79dacbcdf9111f4590a5c` (0.9.0). This snapshot includes the locally tested, not yet deployed 0.9.1 archived-profile deletion feature. The import is a source snapshot; earlier Git history remains in the original checkout.
 
@@ -14,7 +14,17 @@ The application uses a Cloudflare Worker with a D1 binding named `DB`. `wrangler
 
 In Workers Builds, use the project name `ascend-digital-cards-staging`, build command `npm run build && npm test && node --test tests/cloudflare-staging.test.mjs`, and deploy command `npx wrangler deploy`.
 
-The entrypoint `worker/cloudflare-staging.js` deliberately serves only a setup-in-progress page (HTTP 503) and a `/healthz` response (HTTP 200, `status: locked`, `applicationReady: false`). It cannot be unlocked with environment variables or identity headers. The application bundle is built and tested, but is not served. This first deployment verifies repository integration and Worker provisioning, not login, database connectivity or application readiness.
+The entrypoint `worker/cloudflare-staging.js` keeps dashboards, APIs, public cards and NFC redirects locked (HTTP 503). `/healthz` continues to return `status: locked` and `applicationReady: false`. No environment flag or identity header enables the application.
+
+When staging Auth variables are configured, `/login` serves a separate sign-in probe with Google OAuth (PKCE) and 8-digit email OTP through pinned Supabase JS. `/auth/callback` exchanges the OAuth code; the SDK stores sessions and PKCE state in the current tab's session storage. Access and refresh tokens are not written to application logs or URLs. The OAuth code is removed from the address bar. This browser session design is limited to the probe and does not implement authenticated dashboard navigation.
+
+`/auth/session` verifies the bearer session against the fixed Supabase project's `/auth/v1/user` endpoint and accepts only a confirmed, non-anonymous account with the staging owner's email. Client-supplied identity headers and editable metadata are ignored. All responses use `no-store`; the sign-in page has a restrictive CSP. Successful authentication grants only the sign-in test, never application access.
+
+Staging owner: `ascendwebstudios777@gmail.com`, explicitly selected by the owner. This is not an automatic replacement for the existing Sites owner ID. Preserve the old ID in an explicit, reviewed mapping when importing live data.
+
+Sign in with Google first to create the staging Auth account. Email OTP requests use `shouldCreateUser: false`; then test codes with that same address. The Magic link or OTP template must include `{{ .Token }}`. SMTP and Google OAuth credentials are configured only in Supabase, never in this repository. Live Google/SMTP acceptance remains to be verified manually. The built-in Auth service rate limits apply; the probe's one-minute resend timer is a UI convenience, not a security boundary. The publishable key can be used to reach the public Auth API directly, but successful Auth does not grant D1 access.
+
+Only the Supabase URL, publishable key, staging owner email and probe-enable flag are stored as Wrangler variables. No service-role key, SMTP password, Google client secret or production data is included.
 
 No migrations run automatically and the Worker does not read or write D1. Apply migrations to the named staging database in a subsequent step. Replace this locked entrypoint with a securely authenticated application entrypoint only after reviewing identity verification and authorization tests.
 

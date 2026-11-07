@@ -5,6 +5,12 @@
   "compatibility_date": "2026-11-07",
   "workers_dev": true,
   "preview_urls": false,
+  "vars": {
+    "STAGING_AUTH_ENABLED": "true",
+    "SUPABASE_URL": "https://fezkiiecfmwbdcdhghzg.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_BR-ou-qtLjOBBwYh_lD8SA_eE53a9QC",
+    "STAGING_OWNER_EMAIL": "ascendwebstudios777@gmail.com"
+  },
   "d1_databases": [
     {
       "binding": "DB",

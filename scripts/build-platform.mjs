@@ -17,3 +17,9 @@ const brandIcon=name=>JSON.parse(brandSource.match(new RegExp('export const '+na
 const localHtml=html.replace('/favicon.png?v=ascend-brand-1',()=>brandIcon('faviconPng')).replace('/apple-touch-icon.png?v=ascend-brand-1',()=>brandIcon('touchIconPng')).replace('<title>Ascend Digital Cards</title>','<title>Ascend Digital Cards · Local Demo</title>').replace('<link rel="stylesheet" href="/_assets/studio.css">',()=>`<style>${css}</style>`).replace('<script type="module" src="/_assets/app.js"></script>',()=>`<script>window.__ASCEND_OFFLINE__=true;</script><script type="module">${js.replace(/<\/script/gi,'<\\/script')}</script>`);
 fs.mkdirSync('offline-demo',{recursive:true});fs.writeFileSync('offline-demo/START-HERE.html',localHtml);
 const tests=await rolldown({input:'tests/model.test.ts',platform:'node',resolve:{alias:aliases}});await tests.write({file:'.sites-runtime/model-tests.mjs',format:'esm'});await tests.close();
+// Standalone authentication probe; never includes the Sites-trusted app handler.
+const authBundle=await rolldown({input:'app/staging-signin.js',platform:'browser',transform:{define:{'process.env.NODE_ENV':JSON.stringify('production')}}});
+const authOutput=await authBundle.generate({format:'esm',minify:true});await authBundle.close();
+const authJs=authOutput.output.find(x=>x.type==='chunk').code;
+fs.mkdirSync('dist/staging',{recursive:true});
+fs.writeFileSync('dist/staging/auth-assets.js',`export const authJs=${JSON.stringify(authJs)};\n`);
