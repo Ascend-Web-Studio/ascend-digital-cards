@@ -30,8 +30,11 @@ export async function stagingAuth(request,env,fetcher=fetch) {
       // user_metadata, caller-supplied email or Sites identity headers.
       const response = await fetcher(`${config.url}/auth/v1/user`, {
         headers:{apikey:config.publishableKey, Authorization:auth},
-        redirect:'error', signal:AbortSignal.timeout(10000),
+        // Workers rejects redirect:'error' before sending the request. Inspect
+        // manual redirects instead, never forwarding the bearer to another host.
+        redirect:'manual', signal:AbortSignal.timeout(10000),
       });
+      if (response.status >= 300 && response.status < 400) return reply({error:'Sign-in verification temporarily unavailable'},503);
       if (!response.ok) return reply({error:'Session could not be verified'}, response.status >= 500 ? 503 : 401);
       const user = await response.json();
       if (!user || typeof user.id !== 'string' || !user.id || user.is_anonymous === true || !user.email_confirmed_at || typeof user.email !== 'string') return reply({error:'Verified email required'},403);

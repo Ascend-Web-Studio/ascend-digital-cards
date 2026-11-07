@@ -40,7 +40,7 @@ test('Sites headers cannot authenticate, and only configured Auth validates bear
     assert.equal(url,'https://fezkiiecfmwbdcdhghzg.supabase.co/auth/v1/user');
     assert.equal(init.headers.Authorization,'Bearer test-token');
     assert.equal(init.headers.apikey,'sb_publishable_test_only');
-    assert.equal(init.redirect,'error');
+    assert.equal(init.redirect,'manual');
     return Response.json(validUser);
   });
   assert.equal(calls,1);
@@ -65,6 +65,21 @@ test('rejects unverified, anonymous and other accounts, ignoring user-editable m
     assert.ok(!(await response.text()).includes('secret upstream'));
   }
   assert.equal((await stagingAuth(req({Authorization:'Bearer test'}),configured,async()=>{throw new Error('network');})).status,503);
+});
+
+test('uses Workers-supported redirect mode and rejects redirects without forwarding credentials', async () => {
+  let calls = 0;
+  const response = await stagingAuth(req({Authorization:'Bearer test'}),configured,async (url,init)=>{
+    calls++;
+    if (init.redirect === 'error') throw new TypeError('Unsupported redirect mode');
+    assert.equal(init.redirect,'manual');
+    assert.equal(url,configured.SUPABASE_URL+'/auth/v1/user');
+    return new Response(null,{status:302,headers:{Location:'https://untrusted.example/collect'}});
+  });
+  assert.equal(calls,1);
+  assert.equal(response.status,503);
+  assert.equal(response.headers.get('Location'),null);
+  assert.ok(!(await response.text()).includes('untrusted.example'));
 });
 
 test('configured sign-in never enables application routes, even with an owner token', async () => {
