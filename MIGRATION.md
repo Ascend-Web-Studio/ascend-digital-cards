@@ -1,6 +1,6 @@
 # GitHub and Cloudflare migration
 
-Status: source import only. This repository is not yet ready for a public Cloudflare deployment.
+Status: ready for an infrastructure-only staging deployment. The application itself remains locked pending replacement authentication and data migration.
 
 Imported on 7 November 2026 from the local Ascend Digital Cards checkout. The last Sites source commit was `50877bbbdc51cca86ed79dacbcdf9111f4590a5c` (0.9.0). This snapshot includes the locally tested, not yet deployed 0.9.1 archived-profile deletion feature. The import is a source snapshot; earlier Git history remains in the original checkout.
 
@@ -8,7 +8,15 @@ Imported on 7 November 2026 from the local Ascend Digital Cards checkout. The la
 
 `npm ci` installs dependencies. `npm run build` bundles the React UI and Worker into `dist/server/index.js`, generates model tests, and regenerates the offline demo. Run `npm test` after the build. SQL migrations are in `drizzle/`.
 
-The application uses a Cloudflare Worker with a D1 binding named `DB`. Wrangler configuration and GitHub-to-Cloudflare deployment configuration still need to be added. Existing Sites manifests are retained for reference and are not Cloudflare account configuration.
+The application uses a Cloudflare Worker with a D1 binding named `DB`. `wrangler.json` targets only `ascend-digital-cards-staging` and the separate staging D1 database. Existing Sites manifests are retained for reference and are not Cloudflare account configuration.
+
+## First staging deployment
+
+In Workers Builds, use the project name `ascend-digital-cards-staging`, build command `npm run build && npm test && node --test tests/cloudflare-staging.test.mjs`, and deploy command `npx wrangler deploy`.
+
+The entrypoint `worker/cloudflare-staging.js` deliberately serves only a setup-in-progress page (HTTP 503) and a `/healthz` response (HTTP 200, `status: locked`, `applicationReady: false`). It cannot be unlocked with environment variables or identity headers. The application bundle is built and tested, but is not served. This first deployment verifies repository integration and Worker provisioning, not login, database connectivity or application readiness.
+
+No migrations run automatically and the Worker does not read or write D1. Apply migrations to the named staging database in a subsequent step. Replace this locked entrypoint with a securely authenticated application entrypoint only after reviewing identity verification and authorization tests.
 
 ## Required before external deployment
 

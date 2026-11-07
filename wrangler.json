@@ -1,0 +1,16 @@
+{
+  "name": "ascend-digital-cards-staging",
+  "account_id": "685cb53a67c522bb0a483a75803a6832",
+  "main": "worker/cloudflare-staging.js",
+  "compatibility_date": "2026-11-07",
+  "workers_dev": true,
+  "preview_urls": false,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ascend-digital-cards-staging",
+      "database_id": "2cf54796-7336-4133-bd80-7f595c5a0374",
+      "migrations_dir": "drizzle"
+    }
+  ]
+}
